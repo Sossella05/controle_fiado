@@ -207,6 +207,19 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
+from flask import send_file
+import os
+
+@app.route("/backup")
+@login_required
+def backup():
+    db_path = "/tmp/fiado.db"
+    if os.path.exists(db_path):
+        return send_file(db_path, as_attachment=True)
+    else:
+        flash("Banco de dados não encontrado!")
+        return redirect(url_for("index"))
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     app.run(debug=True)
