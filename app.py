@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "chave-secreta-fiado"  # troque por algo único
+app.secret_key = "chave-secreta-fiado"
 
 # ---------------- FLASK-LOGIN ----------------
 login_manager = LoginManager()
@@ -23,7 +23,7 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    conn = sqlite3.connect("fiado.db")
+    conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
     c.execute("SELECT id, nome, senha FROM usuarios WHERE id=?", (user_id,))
     user = c.fetchone()
@@ -34,7 +34,7 @@ def load_user(user_id):
 
 # ---------------- BANCO DE DADOS ----------------
 def init_db():
-    conn = sqlite3.connect("fiado.db")
+    conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
 
     # Tabelas principais
@@ -78,7 +78,7 @@ init_db()
 @app.route("/")
 @login_required
 def index():
-    conn = sqlite3.connect("fiado.db")
+    conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
     c.execute("""
         SELECT clientes.id, clientes.nome,
@@ -115,7 +115,7 @@ def index():
 def cliente():
     if request.method == "POST":
         nome = request.form["nome"]
-        conn = sqlite3.connect("fiado.db")
+        conn = sqlite3.connect("/tmp/fiado.db")
         c = conn.cursor()
         c.execute("INSERT INTO clientes (nome) VALUES (?)", (nome,))
         conn.commit()
@@ -128,7 +128,7 @@ def cliente():
 @app.route("/cliente/<int:cliente_id>")
 @login_required
 def historico(cliente_id):
-    conn = sqlite3.connect("fiado.db")
+    conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
     c.execute("SELECT nome FROM clientes WHERE id=?", (cliente_id,))
     cliente = c.fetchone()[0]
@@ -167,7 +167,7 @@ def lancar(cliente_id):
         valor_compra = float(request.form["valor_compra"] or 0)
         valor_pago = float(request.form["valor_pago"] or 0)
 
-        conn = sqlite3.connect("fiado.db")
+        conn = sqlite3.connect("/tmp/fiado.db")
         c = conn.cursor()
         c.execute("""
             INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago)
@@ -187,7 +187,7 @@ def login():
     if request.method == "POST":
         nome = request.form["nome"]
         senha = request.form["senha"]
-        conn = sqlite3.connect("fiado.db")
+        conn = sqlite3.connect("/tmp/fiado.db")
         c = conn.cursor()
         c.execute("SELECT id, nome, senha FROM usuarios WHERE nome=? AND senha=?", (nome, senha))
         user = c.fetchone()
