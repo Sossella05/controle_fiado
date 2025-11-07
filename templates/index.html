@@ -55,11 +55,10 @@
               </td>
               <td>
                 <div class="d-flex flex-column align-items-center">
-                  <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary mb-1 w-75">📜 Histórico</a>
                   <a href="/lancar/{{ id }}" class="btn btn-sm btn-success mb-1 w-75">➕ Lançar</a>
                   <button class="btn btn-sm btn-warning mb-1 w-75" onclick="abrirPagamento({{ id }}, '{{ nome }}')">💵 Pagamento</button>
-                  <a href="/editar/{{ id }}" class="btn btn-sm btn-secondary mb-1 w-75">✏️ Editar</a>
-                  <button class="btn btn-sm btn-danger w-75" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">🗑️ Excluir</button>
+                  <button class="btn btn-sm btn-danger mb-1 w-75" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">🗑️ Excluir</button>
+                  <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary w-75">📜 Histórico</a>
                 </div>
               </td>
             </tr>
