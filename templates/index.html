@@ -22,28 +22,7 @@
 
   <div class="container">
 
-    <!-- GRÁFICOS -->
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h5 class="card-title">📉 Saldo Devedor por Cliente</h5>
-            <canvas id="graficoSaldo"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h5 class="card-title">💵 Total Comprado vs Pago</h5>
-            <canvas id="graficoComparativo"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TABELA DE CLIENTES -->
+    <!-- TABELA DE CLIENTES (AGORA NO TOPO) -->
     <div class="card shadow-sm mb-5">
       <div class="card-body">
         <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
@@ -78,17 +57,37 @@
         <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
       </div>
     </div>
+
+    <!-- GRÁFICOS (MANTIDOS ABAIXO, COM MESMO TAMANHO) -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body" style="height: 400px;">
+            <h5 class="card-title">📉 Saldo Devedor por Cliente</h5>
+            <canvas id="graficoSaldo" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body" style="height: 400px;">
+            <h5 class="card-title">💵 Total Comprado vs Pago</h5>
+            <canvas id="graficoComparativo" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- CHART.JS -->
   <script>
-    // --- Dados vindos do Flask ---
     const nomes = {{ nomes | tojson }};
     const saldos = {{ saldos | tojson }};
     const totalCompras = {{ total_compras | tojson }};
     const totalPagos = {{ total_pagos | tojson }};
 
-    // --- Gráfico de Saldo por Cliente ---
+    // Gráfico de barras (saldo por cliente)
     new Chart(document.getElementById("graficoSaldo"), {
       type: 'bar',
       data: {
@@ -99,13 +98,13 @@
           backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
         }]
       },
-      options: { 
+      options: {
         plugins: { legend: { display: false } },
         scales: { y: { beginAtZero: true } }
       }
     });
 
-    // --- Gráfico Total Comprado x Pago ---
+    // Gráfico pizza (total comprado vs pago)
     new Chart(document.getElementById("graficoComparativo"), {
       type: 'pie',
       data: {
@@ -117,6 +116,9 @@
           ],
           backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
         }]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } }
       }
     });
   </script>
