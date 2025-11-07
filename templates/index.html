@@ -22,11 +22,10 @@
 
   <div class="container">
 
-    <!-- TABELA DE CLIENTES (AGORA NO TOPO) -->
+    <!-- TABELA DE CLIENTES -->
     <div class="card shadow-sm mb-5">
       <div class="card-body">
         <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
-
         <table class="table table-hover align-middle">
           <thead class="table-dark">
             <tr>
@@ -46,19 +45,20 @@
               <td class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
                 R$ {{ "%.2f"|format(saldo) }}
               </td>
-              <td>
-                <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary">📜 Ver histórico</a>
+              <td class="text-center">
+                <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary mb-1">📜 Histórico</a>
+                <a href="/lancar/{{ id }}" class="btn btn-sm btn-success mb-1">➕ Lançar</a>
+                <button class="btn btn-sm btn-warning mb-1" onclick="abrirPagamento({{ id }}, '{{ nome }}')">💵 Pagamento</button>
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-
         <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
       </div>
     </div>
 
-    <!-- GRÁFICOS (MANTIDOS ABAIXO, COM MESMO TAMANHO) -->
+    <!-- GRÁFICOS -->
     <div class="row">
       <div class="col-md-6">
         <div class="card shadow-sm mb-4">
@@ -68,7 +68,6 @@
           </div>
         </div>
       </div>
-
       <div class="col-md-6">
         <div class="card shadow-sm mb-4">
           <div class="card-body" style="height: 400px;">
@@ -80,14 +79,50 @@
     </div>
   </div>
 
-  <!-- CHART.JS -->
+  <!-- MODAL PAGAMENTO -->
+  <div class="modal fade" id="modalPagamento" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="formPagamento" method="POST" action="">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title">💵 Atualizar Pagamento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p id="nomeCliente" class="fw-bold mb-3"></p>
+            <div class="mb-3">
+              <label for="valor_pago" class="form-label">Valor pago (R$)</label>
+              <input type="number" class="form-control" id="valor_pago" name="valor_pago" step="0.01" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const nomes = {{ nomes | tojson }};
     const saldos = {{ saldos | tojson }};
     const totalCompras = {{ total_compras | tojson }};
     const totalPagos = {{ total_pagos | tojson }};
 
-    // Gráfico de barras (saldo por cliente)
+    // Modal de pagamento
+    function abrirPagamento(clienteId, clienteNome) {
+      const modal = new bootstrap.Modal(document.getElementById('modalPagamento'));
+      const form = document.getElementById('formPagamento');
+      const nome = document.getElementById('nomeCliente');
+      nome.innerText = "Cliente: " + clienteNome;
+      form.action = `/pagamento/${clienteId}`;
+      modal.show();
+    }
+
+    // Gráficos
     new Chart(document.getElementById("graficoSaldo"), {
       type: 'bar',
       data: {
@@ -98,13 +133,9 @@
           backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
         }]
       },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-      }
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
 
-    // Gráfico pizza (total comprado vs pago)
     new Chart(document.getElementById("graficoComparativo"), {
       type: 'pie',
       data: {
@@ -117,9 +148,7 @@
           backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
         }]
       },
-      options: {
-        plugins: { legend: { position: 'bottom' } }
-      }
+      options: { plugins: { legend: { position: 'bottom' } } }
     });
   </script>
 

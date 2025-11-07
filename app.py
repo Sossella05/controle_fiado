@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import (
     LoginManager, UserMixin, login_user, login_required,
     logout_user, current_user
 )
 import sqlite3
+import os
 from datetime import datetime
 
 app = Flask(__name__)
@@ -54,7 +55,6 @@ def init_db():
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
         )
     """)
-    # Usuários
     c.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +62,6 @@ def init_db():
             senha TEXT
         )
     """)
-    # Criar admin padrão
     c.execute("SELECT * FROM usuarios WHERE nome='admin'")
     if not c.fetchone():
         c.execute("INSERT INTO usuarios (nome, senha) VALUES ('admin', '1234')")
@@ -92,7 +91,6 @@ def index():
     dados = c.fetchall()
     conn.close()
 
-    # Dados para os gráficos
     nomes = [d[1] for d in dados]
     total_compras = [d[2] for d in dados]
     total_pagos = [d[3] for d in dados]
@@ -105,11 +103,11 @@ def index():
         nomes=nomes,
         total_compras=total_compras,
         total_pagos=total_pagos,
-        saldos=saldos
+        saldos=saldos,
+        datetime=datetime
     )
 
 # ---------------- CLIENTES ----------------
-
 @app.route("/cliente", methods=["GET", "POST"])
 @login_required
 def cliente():
@@ -124,7 +122,6 @@ def cliente():
     return render_template("clientes.html")
 
 # ---------------- HISTÓRICO ----------------
-
 @app.route("/cliente/<int:cliente_id>")
 @login_required
 def historico(cliente_id):
@@ -158,7 +155,6 @@ def historico(cliente_id):
     )
 
 # ---------------- LANÇAMENTOS ----------------
-
 @app.route("/lancar/<int:cliente_id>", methods=["GET", "POST"])
 @login_required
 def lancar(cliente_id):
@@ -175,13 +171,31 @@ def lancar(cliente_id):
         """, (cliente_id, data, valor_compra, valor_pago))
         conn.commit()
         conn.close()
-        return redirect(url_for("historico", cliente_id=cliente_id))
+        return redirect(url_for("index"))
 
     hoje = datetime.today().strftime("%Y-%m-%d")
     return render_template("lancar.html", cliente_id=cliente_id, data=hoje)
 
-# ---------------- LOGIN ----------------
+# ---------------- PAGAMENTO DIRETO ----------------
+@app.route("/pagamento/<int:cliente_id>", methods=["POST"])
+@login_required
+def pagamento(cliente_id):
+    valor_pago = float(request.form["valor_pago"] or 0)
+    data = datetime.today().strftime("%Y-%m-%d")
 
+    conn = sqlite3.connect("/tmp/fiado.db")
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago)
+        VALUES (?, ?, 0, ?)
+    """, (cliente_id, data, valor_pago))
+    conn.commit()
+    conn.close()
+
+    flash("Pagamento atualizado com sucesso!")
+    return redirect(url_for("index"))
+
+# ---------------- LOGIN ----------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -200,16 +214,13 @@ def login():
     return render_template("login.html")
 
 # ---------------- LOGOUT ----------------
-
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
 
-from flask import send_file
-import os
-
+# ---------------- BACKUP ----------------
 @app.route("/backup")
 @login_required
 def backup():
@@ -220,6 +231,7 @@ def backup():
         flash("Banco de dados não encontrado!")
         return redirect(url_for("index"))
 
+# ---------------- ERRO 404 ----------------
 @app.errorhandler(404)
 def pagina_nao_encontrada(e):
     return render_template("404.html"), 404
