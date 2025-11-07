@@ -220,6 +220,10 @@ def backup():
         flash("Banco de dados não encontrado!")
         return redirect(url_for("index"))
 
+@app.errorhandler(404)
+def pagina_nao_encontrada(e):
+    return render_template("404.html"), 404
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     app.run(debug=True)
