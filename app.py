@@ -168,8 +168,16 @@ def lancar(cliente_id):
             INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago)
             VALUES (?, ?, ?, ?)
         """, (cliente_id, data, valor_compra, valor_pago))
+        venda_id = c.lastrowid
         conn.commit()
         conn.close()
+
+        session["ultima_acao"] = {
+            "tipo": "lancamento",
+            "dados": {"id": venda_id}
+        }
+
+        flash("Lançamento adicionado com sucesso! (pode desfazer abaixo 👇)")
         return redirect(url_for("index"))
 
     hoje = datetime.today().strftime("%Y-%m-%d")
@@ -197,7 +205,7 @@ def pagamento(cliente_id):
         "dados": {"id": venda_id}
     }
 
-    flash("Pagamento atualizado com sucesso!")
+    flash("Pagamento atualizado com sucesso! (pode desfazer abaixo 👇)")
     return redirect(url_for("index"))
 
 # ---------------- EDITAR CLIENTE ----------------
@@ -227,7 +235,7 @@ def excluir(cliente_id):
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
 
-    # salvar dados antes de excluir
+    # Salvar dados antes de excluir
     c.execute("SELECT id, nome FROM clientes WHERE id=?", (cliente_id,))
     cliente = c.fetchone()
     c.execute("SELECT * FROM vendas WHERE cliente_id=?", (cliente_id,))
@@ -272,9 +280,13 @@ def desfazer():
         c.execute("DELETE FROM vendas WHERE id=?", (venda_id,))
         flash("Pagamento desfeito com sucesso!")
 
+    elif ultima_acao["tipo"] == "lancamento":
+        venda_id = ultima_acao["dados"]["id"]
+        c.execute("DELETE FROM vendas WHERE id=?", (venda_id,))
+        flash("Lançamento desfeito com sucesso!")
+
     conn.commit()
     conn.close()
-
     session.pop("ultima_acao", None)
     return redirect(url_for("index"))
 
