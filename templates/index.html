@@ -8,110 +8,118 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/">💰 Controle de Fiado</a>
-    <div class="d-flex">
-      <span class="navbar-text text-white me-3">Usuário: {{ usuario }}</span>
-      <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">💰 Controle de Fiado</a>
+      <div class="d-flex">
+        <span class="navbar-text text-white me-3">Usuário: {{ usuario }}</span>
+        <a href="/backup" class="btn btn-success btn-sm me-2">💾 Backup</a>
+        <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
+      </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
-<div class="container">
-  <div class="row">
-    <div class="col-md-6">
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <h5 class="card-title">📉 Saldo Devedor por Cliente</h5>
-          <canvas id="graficoSaldo"></canvas>
+  <div class="container">
+
+    <!-- GRÁFICOS -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="card-title">📉 Saldo Devedor por Cliente</h5>
+            <canvas id="graficoSaldo"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="card-title">💵 Total Comprado vs Pago</h5>
+            <canvas id="graficoComparativo"></canvas>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="col-md-6">
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <h5 class="card-title">💵 Total Comprado vs Pago</h5>
-          <canvas id="graficoComparativo"></canvas>
-        </div>
+    <!-- TABELA DE CLIENTES -->
+    <div class="card shadow-sm mb-5">
+      <div class="card-body">
+        <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
+
+        <table class="table table-hover align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th>Cliente</th>
+              <th>Total Comprado</th>
+              <th>Total Pago</th>
+              <th>Saldo Devedor</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for id, nome, total_compra, total_pago, saldo in dados %}
+            <tr>
+              <td>{{ nome }}</td>
+              <td>R$ {{ "%.2f"|format(total_compra) }}</td>
+              <td>R$ {{ "%.2f"|format(total_pago) }}</td>
+              <td class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
+                R$ {{ "%.2f"|format(saldo) }}
+              </td>
+              <td>
+                <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary">📜 Ver histórico</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
       </div>
     </div>
   </div>
 
-  <div class="card shadow-sm mb-5">
-    <div class="card-body">
-      <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
+  <!-- CHART.JS -->
+  <script>
+    // --- Dados vindos do Flask ---
+    const nomes = {{ nomes | tojson }};
+    const saldos = {{ saldos | tojson }};
+    const totalCompras = {{ total_compras | tojson }};
+    const totalPagos = {{ total_pagos | tojson }};
 
-      <table class="table table-hover">
-        <thead class="table-dark">
-          <tr>
-            <th>Cliente</th>
-            <th>Total Comprado</th>
-            <th>Total Pago</th>
-            <th>Saldo Devedor</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for id, nome, total_compra, total_pago, saldo in dados %}
-          <tr>
-            <td>{{ nome }}</td>
-            <td>R$ {{ "%.2f"|format(total_compra) }}</td>
-            <td>R$ {{ "%.2f"|format(total_pago) }}</td>
-            <td class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
-              R$ {{ "%.2f"|format(saldo) }}
-            </td>
-            <td><a href="/cliente/{{ id }}" class="btn btn-sm btn-primary">📜 Ver histórico</a></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    // --- Gráfico de Saldo por Cliente ---
+    new Chart(document.getElementById("graficoSaldo"), {
+      type: 'bar',
+      data: {
+        labels: nomes,
+        datasets: [{
+          label: 'Saldo Devedor (R$)',
+          data: saldos,
+          backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
+        }]
+      },
+      options: { 
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
 
-      <a href="/cliente" class="btn btn-success">➕ Adicionar Cliente</a>
-    </div>
-  </div>
-</div>
-
-<script>
-  // --- Dados vindos do Flask ---
-  const nomes = {{ nomes | tojson }};
-  const saldos = {{ saldos | tojson }};
-  const totalCompras = {{ total_compras | tojson }};
-  const totalPagos = {{ total_pagos | tojson }};
-
-  // --- Gráfico de Saldo por Cliente ---
-  new Chart(document.getElementById("graficoSaldo"), {
-    type: 'bar',
-    data: {
-      labels: nomes,
-      datasets: [{
-        label: 'Saldo Devedor (R$)',
-        data: saldos,
-        backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
-      }]
-    },
-    options: { 
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-
-  // --- Gráfico Total Comprado x Pago ---
-  new Chart(document.getElementById("graficoComparativo"), {
-    type: 'pie',
-    data: {
-      labels: ['Total Comprado', 'Total Pago'],
-      datasets: [{
-        data: [
-          totalCompras.reduce((a,b)=>a+b,0),
-          totalPagos.reduce((a,b)=>a+b,0)
-        ],
-        backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
-      }]
-    }
-  });
-</script>
+    // --- Gráfico Total Comprado x Pago ---
+    new Chart(document.getElementById("graficoComparativo"), {
+      type: 'pie',
+      data: {
+        labels: ['Total Comprado', 'Total Pago'],
+        datasets: [{
+          data: [
+            totalCompras.reduce((a,b)=>a+b,0),
+            totalPagos.reduce((a,b)=>a+b,0)
+          ],
+          backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
+        }]
+      }
+    });
+  </script>
 
 </body>
 </html>
