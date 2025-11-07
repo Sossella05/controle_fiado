@@ -26,8 +26,9 @@
     <div class="card shadow-sm mb-5">
       <div class="card-body">
         <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
+
         <table class="table table-hover align-middle">
-          <thead class="table-dark">
+          <thead class="table-dark text-center">
             <tr>
               <th>Cliente</th>
               <th>Total Comprado</th>
@@ -38,22 +39,27 @@
           </thead>
           <tbody>
             {% for id, nome, total_compra, total_pago, saldo in dados %}
-            <tr>
+            <tr class="text-center">
               <td>{{ nome }}</td>
               <td>R$ {{ "%.2f"|format(total_compra) }}</td>
               <td>R$ {{ "%.2f"|format(total_pago) }}</td>
               <td class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
                 R$ {{ "%.2f"|format(saldo) }}
               </td>
-              <td class="text-center">
-                <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary mb-1">📜 Histórico</a>
-                <a href="/lancar/{{ id }}" class="btn btn-sm btn-success mb-1">➕ Lançar</a>
-                <button class="btn btn-sm btn-warning mb-1" onclick="abrirPagamento({{ id }}, '{{ nome }}')">💵 Pagamento</button>
+              <td>
+                <div class="d-flex flex-column align-items-center">
+                  <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary mb-1 w-75">📜 Histórico</a>
+                  <a href="/lancar/{{ id }}" class="btn btn-sm btn-success mb-1 w-75">➕ Lançar</a>
+                  <button class="btn btn-sm btn-warning mb-1 w-75" onclick="abrirPagamento({{ id }}, '{{ nome }}')">💵 Pagamento</button>
+                  <a href="/editar/{{ id }}" class="btn btn-sm btn-secondary mb-1 w-75">✏️ Editar</a>
+                  <button class="btn btn-sm btn-danger w-75" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">🗑️ Excluir</button>
+                </div>
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
+
         <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
       </div>
     </div>
@@ -122,7 +128,14 @@
       modal.show();
     }
 
-    // Gráficos
+    // Confirmação antes de excluir
+    function confirmarExclusao(clienteId, clienteNome) {
+      if (confirm(`Tem certeza que deseja excluir o cliente "${clienteNome}"?`)) {
+        window.location.href = `/excluir/${clienteId}`;
+      }
+    }
+
+    // Gráfico de barras (Saldo)
     new Chart(document.getElementById("graficoSaldo"), {
       type: 'bar',
       data: {
@@ -136,6 +149,7 @@
       options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
 
+    // Gráfico de pizza (Total Comprado x Pago)
     new Chart(document.getElementById("graficoComparativo"), {
       type: 'pie',
       data: {

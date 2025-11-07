@@ -38,7 +38,7 @@ def init_db():
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
 
-    # Tabelas principais
+    # Tabelas
     c.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +73,6 @@ def init_db():
 init_db()
 
 # ---------------- ROTAS PRINCIPAIS ----------------
-
 @app.route("/")
 @login_required
 def index():
@@ -193,6 +192,39 @@ def pagamento(cliente_id):
     conn.close()
 
     flash("Pagamento atualizado com sucesso!")
+    return redirect(url_for("index"))
+
+# ---------------- EDITAR CLIENTE ----------------
+@app.route("/editar/<int:cliente_id>", methods=["GET", "POST"])
+@login_required
+def editar(cliente_id):
+    conn = sqlite3.connect("/tmp/fiado.db")
+    c = conn.cursor()
+
+    if request.method == "POST":
+        novo_nome = request.form["nome"]
+        c.execute("UPDATE clientes SET nome=? WHERE id=?", (novo_nome, cliente_id))
+        conn.commit()
+        conn.close()
+        flash("Cliente atualizado com sucesso!")
+        return redirect(url_for("index"))
+
+    c.execute("SELECT nome FROM clientes WHERE id=?", (cliente_id,))
+    cliente = c.fetchone()
+    conn.close()
+    return render_template("clientes.html", cliente_id=cliente_id, nome=cliente[0])
+
+# ---------------- EXCLUIR CLIENTE ----------------
+@app.route("/excluir/<int:cliente_id>")
+@login_required
+def excluir(cliente_id):
+    conn = sqlite3.connect("/tmp/fiado.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM vendas WHERE cliente_id=?", (cliente_id,))
+    c.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
+    conn.commit()
+    conn.close()
+    flash("Cliente excluído com sucesso!")
     return redirect(url_for("index"))
 
 # ---------------- LOGIN ----------------
