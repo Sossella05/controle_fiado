@@ -6,6 +6,9 @@ from flask_login import (
 import sqlite3
 import os
 from datetime import datetime
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 app.secret_key = "chave-secreta-fiado"
@@ -153,7 +156,63 @@ def historico(cliente_id):
         saldo=saldo
     )
 
-# ---------------- LANÇAMENTO ----------------
+# ---------------- BAIXAR HISTÓRICO (PDF) ----------------
+@app.route("/baixar/<int:cliente_id>")
+@login_required
+def baixar(cliente_id):
+    conn = sqlite3.connect("/tmp/fiado.db")
+    c = conn.cursor()
+    c.execute("SELECT nome FROM clientes WHERE id=?", (cliente_id,))
+    cliente = c.fetchone()[0]
+
+    c.execute("""
+        SELECT data, valor_compra, valor_pago
+        FROM vendas WHERE cliente_id=? ORDER BY data ASC
+    """, (cliente_id,))
+    vendas = c.fetchall()
+    conn.close()
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf.setTitle(f"Resumo - {cliente}")
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(200, 800, f"Resumo de {cliente}")
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, 780, f"Data de emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+
+    y = 750
+    total_compra = 0
+    total_pago = 0
+
+    for data, compra, pago in vendas:
+        pdf.drawString(50, y, f"{data} | Compra: R$ {compra:.2f} | Pago: R$ {pago:.2f}")
+        y -= 20
+        total_compra += compra
+        total_pago += pago
+        if y < 100:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 12)
+            y = 800
+
+    saldo = total_compra - total_pago
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y-20, f"Total Compras: R$ {total_compra:.2f}")
+    pdf.drawString(50, y-40, f"Total Pago: R$ {total_pago:.2f}")
+    pdf.drawString(50, y-60, f"Saldo Devedor: R$ {saldo:.2f}")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"Resumo_{cliente}.pdf",
+        mimetype='application/pdf'
+    )
+
+# ---------------- OUTRAS FUNÇÕES ----------------
 @app.route("/lancar/<int:cliente_id>", methods=["GET", "POST"])
 @login_required
 def lancar(cliente_id):
@@ -161,7 +220,6 @@ def lancar(cliente_id):
         data = request.form["data"]
         valor_compra = float(request.form["valor_compra"] or 0)
         valor_pago = float(request.form["valor_pago"] or 0)
-
         conn = sqlite3.connect("/tmp/fiado.db")
         c = conn.cursor()
         c.execute("""
@@ -172,125 +230,74 @@ def lancar(cliente_id):
         conn.commit()
         conn.close()
 
-        session["ultima_acao"] = {
-            "tipo": "lancamento",
-            "dados": {"id": venda_id}
-        }
-
-        flash("Lançamento adicionado com sucesso! (pode desfazer abaixo 👇)")
+        session["ultima_acao"] = {"tipo": "lancamento", "dados": {"id": venda_id}}
+        flash("Lançamento adicionado com sucesso!")
         return redirect(url_for("index"))
 
     hoje = datetime.today().strftime("%Y-%m-%d")
     return render_template("lancar.html", cliente_id=cliente_id, data=hoje)
 
-# ---------------- PAGAMENTO DIRETO ----------------
 @app.route("/pagamento/<int:cliente_id>", methods=["POST"])
 @login_required
 def pagamento(cliente_id):
     valor_pago = float(request.form["valor_pago"] or 0)
     data = datetime.today().strftime("%Y-%m-%d")
-
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago)
-        VALUES (?, ?, 0, ?)
-    """, (cliente_id, data, valor_pago))
+    c.execute("INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago) VALUES (?, ?, 0, ?)",
+              (cliente_id, data, valor_pago))
     venda_id = c.lastrowid
     conn.commit()
     conn.close()
 
-    session["ultima_acao"] = {
-        "tipo": "pagamento",
-        "dados": {"id": venda_id}
-    }
-
-    flash("Pagamento atualizado com sucesso! (pode desfazer abaixo 👇)")
+    session["ultima_acao"] = {"tipo": "pagamento", "dados": {"id": venda_id}}
+    flash("Pagamento registrado com sucesso!")
     return redirect(url_for("index"))
 
-# ---------------- EDITAR CLIENTE ----------------
-@app.route("/editar/<int:cliente_id>", methods=["GET", "POST"])
-@login_required
-def editar(cliente_id):
-    conn = sqlite3.connect("/tmp/fiado.db")
-    c = conn.cursor()
-
-    if request.method == "POST":
-        novo_nome = request.form["nome"]
-        c.execute("UPDATE clientes SET nome=? WHERE id=?", (novo_nome, cliente_id))
-        conn.commit()
-        conn.close()
-        flash("Cliente atualizado com sucesso!")
-        return redirect(url_for("index"))
-
-    c.execute("SELECT nome FROM clientes WHERE id=?", (cliente_id,))
-    cliente = c.fetchone()
-    conn.close()
-    return render_template("clientes.html", cliente_id=cliente_id, nome=cliente[0])
-
-# ---------------- EXCLUIR CLIENTE ----------------
 @app.route("/excluir/<int:cliente_id>")
 @login_required
 def excluir(cliente_id):
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
-
-    # Salvar dados antes de excluir
     c.execute("SELECT id, nome FROM clientes WHERE id=?", (cliente_id,))
     cliente = c.fetchone()
     c.execute("SELECT * FROM vendas WHERE cliente_id=?", (cliente_id,))
     vendas = c.fetchall()
 
-    session["ultima_acao"] = {
-        "tipo": "excluir_cliente",
-        "dados": {"id": cliente[0], "nome": cliente[1], "vendas": vendas}
-    }
-
+    session["ultima_acao"] = {"tipo": "excluir_cliente", "dados": {"id": cliente[0], "nome": cliente[1], "vendas": vendas}}
     c.execute("DELETE FROM vendas WHERE cliente_id=?", (cliente_id,))
     c.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
     conn.commit()
     conn.close()
-
-    flash("Cliente excluído com sucesso! (pode desfazer abaixo 👇)")
+    flash("Cliente excluído! (pode desfazer abaixo 👇)")
     return redirect(url_for("index"))
 
-# ---------------- DESFAZER ÚLTIMA AÇÃO ----------------
 @app.route("/desfazer", methods=["POST"])
 @login_required
 def desfazer():
     ultima_acao = session.get("ultima_acao")
-
     if not ultima_acao:
         flash("Nenhuma ação recente para desfazer.")
         return redirect(url_for("index"))
 
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
-
     if ultima_acao["tipo"] == "excluir_cliente":
-        c.execute("INSERT INTO clientes (id, nome) VALUES (?, ?)", 
+        c.execute("INSERT INTO clientes (id, nome) VALUES (?, ?)",
                   (ultima_acao["dados"]["id"], ultima_acao["dados"]["nome"]))
         for venda in ultima_acao["dados"]["vendas"]:
-            c.execute("INSERT INTO vendas (id, cliente_id, data, valor_compra, valor_pago) VALUES (?, ?, ?, ?, ?)",
-                      venda)
-        flash(f"Cliente '{ultima_acao['dados']['nome']}' restaurado com sucesso!")
-
-    elif ultima_acao["tipo"] == "pagamento":
-        venda_id = ultima_acao["dados"]["id"]
-        c.execute("DELETE FROM vendas WHERE id=?", (venda_id,))
-        flash("Pagamento desfeito com sucesso!")
-
-    elif ultima_acao["tipo"] == "lancamento":
-        venda_id = ultima_acao["dados"]["id"]
-        c.execute("DELETE FROM vendas WHERE id=?", (venda_id,))
-        flash("Lançamento desfeito com sucesso!")
+            c.execute("INSERT INTO vendas (id, cliente_id, data, valor_compra, valor_pago) VALUES (?, ?, ?, ?, ?)", venda)
+        flash("Cliente restaurado com sucesso!")
+    elif ultima_acao["tipo"] in ["pagamento", "lancamento"]:
+        c.execute("DELETE FROM vendas WHERE id=?", (ultima_acao["dados"]["id"],))
+        flash("Ação desfeita com sucesso!")
 
     conn.commit()
     conn.close()
     session.pop("ultima_acao", None)
     return redirect(url_for("index"))
 
-# ---------------- LOGIN ----------------
+# ---------------- LOGIN / LOGOUT ----------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -304,33 +311,27 @@ def login():
         if user:
             login_user(User(*user))
             return redirect(url_for("index"))
-        else:
-            flash("Usuário ou senha incorretos!")
+        flash("Usuário ou senha incorretos!")
     return render_template("login.html")
 
-# ---------------- LOGOUT ----------------
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
 
-# ---------------- BACKUP ----------------
 @app.route("/backup")
 @login_required
 def backup():
     db_path = "/tmp/fiado.db"
     if os.path.exists(db_path):
         return send_file(db_path, as_attachment=True)
-    else:
-        flash("Banco de dados não encontrado!")
-        return redirect(url_for("index"))
+    flash("Banco de dados não encontrado!")
+    return redirect(url_for("index"))
 
-# ---------------- ERRO 404 ----------------
 @app.errorhandler(404)
 def pagina_nao_encontrada(e):
     return render_template("404.html"), 404
 
-# ---------------- MAIN ----------------
 if __name__ == "__main__":
     app.run(debug=True)

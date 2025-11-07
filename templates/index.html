@@ -32,7 +32,12 @@
     <!-- TABELA DE CLIENTES -->
     <div class="card shadow-sm mb-5">
       <div class="card-body">
-        <h4 class="card-title mb-4">📋 Resumo de Clientes</h4>
+        <h4 class="card-title mb-3">📋 Resumo de Clientes</h4>
+
+        <!-- BARRA DE PESQUISA -->
+        <div class="mb-3">
+          <input type="text" id="pesquisaCliente" class="form-control" placeholder="🔍 Buscar cliente por nome...">
+        </div>
 
         <table class="table table-hover align-middle">
           <thead class="table-dark text-center">
@@ -123,6 +128,17 @@
     const saldos = {{ saldos | tojson }};
     const totalCompras = {{ total_compras | tojson }};
     const totalPagos = {{ total_pagos | tojson }};
+
+    // Filtro de pesquisa por nome
+    document.getElementById("pesquisaCliente").addEventListener("keyup", function() {
+      const termo = this.value.toLowerCase();
+      const linhas = document.querySelectorAll("tbody tr");
+
+      linhas.forEach(linha => {
+        const nomeCliente = linha.children[0].innerText.toLowerCase();
+        linha.style.display = nomeCliente.includes(termo) ? "" : "none";
+      });
+    });
 
     // Modal de pagamento
     function abrirPagamento(clienteId, clienteNome) {

@@ -7,81 +7,60 @@
 </head>
 <body class="bg-light">
 
-  <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">💰 Controle de Fiado</a>
-      <div class="d-flex">
-        <span class="navbar-text text-white me-3">Usuário: {{ current_user.nome }}</span>
-        <a href="/backup" class="btn btn-success btn-sm me-2">💾 Backup</a>
-        <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
-      </div>
+  <div class="container py-4">
+    <h3 class="mb-3">📜 Histórico de {{ cliente }}</h3>
+
+    <!-- BOTÃO BAIXAR PDF -->
+    <a href="/baixar/{{ cliente_id }}" class="btn btn-outline-primary mb-3">⬇️ Baixar histórico (PDF)</a>
+
+    <!-- BARRA DE PESQUISA -->
+    <div class="mb-3">
+      <input type="text" id="pesquisaHistorico" class="form-control" placeholder="🔍 Buscar por data ou valor...">
     </div>
-  </nav>
 
-  <!-- CONTEÚDO -->
-  <div class="container">
-    <div class="card shadow-sm mb-5">
-      <div class="card-body">
+    <table class="table table-bordered table-hover">
+      <thead class="table-dark text-center">
+        <tr>
+          <th>Data</th>
+          <th>Valor da Compra</th>
+          <th>Valor Pago</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for id, data, valor_compra, valor_pago in vendas %}
+        <tr class="text-center">
+          <td>{{ data }}</td>
+          <td>R$ {{ "%.2f"|format(valor_compra) }}</td>
+          <td>R$ {{ "%.2f"|format(valor_pago) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
-        <!-- Cabeçalho -->
-        <h3 class="card-title mb-3">📜 Histórico de {{ cliente }}</h3>
-
-        <!-- Totais -->
-        <div class="row mb-4">
-          <div class="col-md-4">
-            <div class="alert alert-warning text-center mb-0">
-              <strong>Total Comprado:</strong><br>
-              R$ {{ "%.2f"|format(total_compra) }}
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="alert alert-info text-center mb-0">
-              <strong>Total Pago:</strong><br>
-              R$ {{ "%.2f"|format(total_pago) }}
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="alert {{ 'alert-danger' if saldo > 0 else 'alert-success' }} text-center mb-0">
-              <strong>Saldo Atual:</strong><br>
-              R$ {{ "%.2f"|format(saldo) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Tabela -->
-        <table class="table table-hover align-middle">
-          <thead class="table-dark">
-            <tr>
-              <th>Data</th>
-              <th>Valor da Compra</th>
-              <th>Valor Pago</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for id, data, valor_compra, valor_pago in vendas %}
-            <tr>
-              <td>{{ data }}</td>
-              <td>R$ {{ "%.2f"|format(valor_compra) }}</td>
-              <td>R$ {{ "%.2f"|format(valor_pago) }}</td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="3" class="text-center text-muted">Nenhum lançamento registrado ainda.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-        <!-- Botões -->
-        <div class="d-flex justify-content-between">
-          <a href="/" class="btn btn-secondary">⬅️ Voltar</a>
-          <a href="/lancar/{{ cliente_id }}" class="btn btn-success">➕ Novo Lançamento</a>
-        </div>
-
-      </div>
+    <div class="card p-3 mt-3">
+      <p><strong>Total Compras:</strong> R$ {{ "%.2f"|format(total_compra) }}</p>
+      <p><strong>Total Pago:</strong> R$ {{ "%.2f"|format(total_pago) }}</p>
+      <p><strong>Saldo Devedor:</strong>
+        <span class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
+          R$ {{ "%.2f"|format(saldo) }}
+        </span>
+      </p>
     </div>
+
+    <a href="/" class="btn btn-secondary mt-3">⬅️ Voltar</a>
   </div>
+
+  <script>
+    // Filtro de pesquisa dentro do histórico
+    document.getElementById("pesquisaHistorico").addEventListener("keyup", function() {
+      const termo = this.value.toLowerCase();
+      const linhas = document.querySelectorAll("tbody tr");
+
+      linhas.forEach(linha => {
+        linha.style.display = linha.innerText.toLowerCase().includes(termo) ? "" : "none";
+      });
+    });
+  </script>
 
 </body>
 </html>
