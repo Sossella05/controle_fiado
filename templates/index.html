@@ -22,6 +22,13 @@
 
   <div class="container">
 
+    <!-- BOTÃO DESFAZER -->
+    {% if session.get('ultima_acao') %}
+      <form method="POST" action="/desfazer" class="mb-3">
+        <button type="submit" class="btn btn-outline-danger btn-sm">↩️ Desfazer última ação</button>
+      </form>
+    {% endif %}
+
     <!-- TABELA DE CLIENTES -->
     <div class="card shadow-sm mb-5">
       <div class="card-body">

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 from flask_login import (
     LoginManager, UserMixin, login_user, login_required,
     logout_user, current_user
@@ -38,7 +38,6 @@ def init_db():
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
 
-    # Tabelas
     c.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +61,7 @@ def init_db():
             senha TEXT
         )
     """)
+
     c.execute("SELECT * FROM usuarios WHERE nome='admin'")
     if not c.fetchone():
         c.execute("INSERT INTO usuarios (nome, senha) VALUES ('admin', '1234')")
@@ -72,7 +72,7 @@ def init_db():
 
 init_db()
 
-# ---------------- ROTAS PRINCIPAIS ----------------
+# ---------------- ROTA PRINCIPAL ----------------
 @app.route("/")
 @login_required
 def index():
@@ -153,7 +153,7 @@ def historico(cliente_id):
         saldo=saldo
     )
 
-# ---------------- LANÇAMENTOS ----------------
+# ---------------- LANÇAMENTO ----------------
 @app.route("/lancar/<int:cliente_id>", methods=["GET", "POST"])
 @login_required
 def lancar(cliente_id):
@@ -188,8 +188,14 @@ def pagamento(cliente_id):
         INSERT INTO vendas (cliente_id, data, valor_compra, valor_pago)
         VALUES (?, ?, 0, ?)
     """, (cliente_id, data, valor_pago))
+    venda_id = c.lastrowid
     conn.commit()
     conn.close()
+
+    session["ultima_acao"] = {
+        "tipo": "pagamento",
+        "dados": {"id": venda_id}
+    }
 
     flash("Pagamento atualizado com sucesso!")
     return redirect(url_for("index"))
@@ -220,11 +226,56 @@ def editar(cliente_id):
 def excluir(cliente_id):
     conn = sqlite3.connect("/tmp/fiado.db")
     c = conn.cursor()
+
+    # salvar dados antes de excluir
+    c.execute("SELECT id, nome FROM clientes WHERE id=?", (cliente_id,))
+    cliente = c.fetchone()
+    c.execute("SELECT * FROM vendas WHERE cliente_id=?", (cliente_id,))
+    vendas = c.fetchall()
+
+    session["ultima_acao"] = {
+        "tipo": "excluir_cliente",
+        "dados": {"id": cliente[0], "nome": cliente[1], "vendas": vendas}
+    }
+
     c.execute("DELETE FROM vendas WHERE cliente_id=?", (cliente_id,))
     c.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
     conn.commit()
     conn.close()
-    flash("Cliente excluído com sucesso!")
+
+    flash("Cliente excluído com sucesso! (pode desfazer abaixo 👇)")
+    return redirect(url_for("index"))
+
+# ---------------- DESFAZER ÚLTIMA AÇÃO ----------------
+@app.route("/desfazer", methods=["POST"])
+@login_required
+def desfazer():
+    ultima_acao = session.get("ultima_acao")
+
+    if not ultima_acao:
+        flash("Nenhuma ação recente para desfazer.")
+        return redirect(url_for("index"))
+
+    conn = sqlite3.connect("/tmp/fiado.db")
+    c = conn.cursor()
+
+    if ultima_acao["tipo"] == "excluir_cliente":
+        c.execute("INSERT INTO clientes (id, nome) VALUES (?, ?)", 
+                  (ultima_acao["dados"]["id"], ultima_acao["dados"]["nome"]))
+        for venda in ultima_acao["dados"]["vendas"]:
+            c.execute("INSERT INTO vendas (id, cliente_id, data, valor_compra, valor_pago) VALUES (?, ?, ?, ?, ?)",
+                      venda)
+        flash(f"Cliente '{ultima_acao['dados']['nome']}' restaurado com sucesso!")
+
+    elif ultima_acao["tipo"] == "pagamento":
+        venda_id = ultima_acao["dados"]["id"]
+        c.execute("DELETE FROM vendas WHERE id=?", (venda_id,))
+        flash("Pagamento desfeito com sucesso!")
+
+    conn.commit()
+    conn.close()
+
+    session.pop("ultima_acao", None)
     return redirect(url_for("index"))
 
 # ---------------- LOGIN ----------------
