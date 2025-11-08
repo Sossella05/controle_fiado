@@ -1,192 +1,169 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Controle de Fiado - Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body class="bg-light">
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4 fw-semibold">📋 Resumo de Clientes</h3>
 
-  <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">💰 Controle de Fiado</a>
-      <div class="d-flex">
-        <span class="navbar-text text-white me-3">Usuário: {{ usuario }}</span>
-        <a href="/backup" class="btn btn-success btn-sm me-2">💾 Backup</a>
-        <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
-      </div>
-    </div>
-  </nav>
+<!-- Campo de pesquisa -->
+<div class="input-group mb-4">
+  <span class="input-group-text bg-white border-end-0">🔍</span>
+  <input type="text" id="pesquisaCliente" class="form-control border-start-0 search-input"
+         placeholder="Buscar cliente por nome...">
+</div>
 
-  <div class="container">
+<!-- Botão Desfazer -->
+{% if session.get('ultima_acao') %}
+  <form method="POST" action="/desfazer" class="mb-3">
+    <button type="submit" class="btn btn-outline-danger btn-sm">↩️ Desfazer última ação</button>
+  </form>
+{% endif %}
 
-    <!-- BOTÃO DESFAZER -->
-    {% if session.get('ultima_acao') %}
-      <form method="POST" action="/desfazer" class="mb-3">
-        <button type="submit" class="btn btn-outline-danger btn-sm">↩️ Desfazer última ação</button>
-      </form>
-    {% endif %}
-
-    <!-- TABELA DE CLIENTES -->
-    <div class="card shadow-sm mb-5">
-      <div class="card-body">
-        <h4 class="card-title mb-3">📋 Resumo de Clientes</h4>
-
-        <!-- BARRA DE PESQUISA -->
-        <div class="mb-3">
-          <input type="text" id="pesquisaCliente" class="form-control" placeholder="🔍 Buscar cliente por nome...">
-        </div>
-
-        <table class="table table-hover align-middle">
-          <thead class="table-dark text-center">
-            <tr>
-              <th>Cliente</th>
-              <th>Total Comprado</th>
-              <th>Total Pago</th>
-              <th>Saldo Devedor</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for id, nome, total_compra, total_pago, saldo in dados %}
-            <tr class="text-center">
-              <td>{{ nome }}</td>
-              <td>R$ {{ "%.2f"|format(total_compra) }}</td>
-              <td>R$ {{ "%.2f"|format(total_pago) }}</td>
-              <td class="{{ 'text-danger' if saldo > 0 else 'text-success' }}">
-                R$ {{ "%.2f"|format(saldo) }}
-              </td>
-              <td>
-                <div class="d-flex flex-column align-items-center">
-                  <a href="/lancar/{{ id }}" class="btn btn-sm btn-success mb-1 w-75">➕ Lançar</a>
-                  <button class="btn btn-sm btn-warning mb-1 w-75" onclick="abrirPagamento({{ id }}, '{{ nome }}')">💵 Pagamento</button>
-                  <button class="btn btn-sm btn-danger mb-1 w-75" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">🗑️ Excluir</button>
-                  <a href="/cliente/{{ id }}" class="btn btn-sm btn-primary w-75">📜 Histórico</a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-        <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
-      </div>
-    </div>
-
-    <!-- GRÁFICOS -->
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-          <div class="card-body" style="height: 400px;">
-            <h5 class="card-title">📉 Saldo Devedor por Cliente</h5>
-            <canvas id="graficoSaldo" height="300"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-          <div class="card-body" style="height: 400px;">
-            <h5 class="card-title">💵 Total Comprado vs Pago</h5>
-            <canvas id="graficoComparativo" height="300"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL PAGAMENTO -->
-  <div class="modal fade" id="modalPagamento" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <form id="formPagamento" method="POST" action="">
-          <div class="modal-header bg-warning text-dark">
-            <h5 class="modal-title">💵 Atualizar Pagamento</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <p id="nomeCliente" class="fw-bold mb-3"></p>
-            <div class="mb-3">
-              <label for="valor_pago" class="form-label">Valor pago (R$)</label>
-              <input type="number" class="form-control" id="valor_pago" name="valor_pago" step="0.01" required>
+<!-- Tabela de clientes -->
+<div class="card p-3 shadow-sm">
+  <div class="table-responsive">
+    <table class="table align-middle text-center">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Total Comprado</th>
+          <th>Total Pago</th>
+          <th>Saldo Devedor</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for id, nome, total_compra, total_pago, saldo in dados %}
+        <tr>
+          <td>{{ nome }}</td>
+          <td>R$ {{ "%.2f"|format(total_compra) }}</td>
+          <td>R$ {{ "%.2f"|format(total_pago) }}</td>
+          <td class="{{ 'text-danger fw-semibold' if saldo > 0 else 'text-success fw-semibold' }}">
+            R$ {{ "%.2f"|format(saldo) }}
+          </td>
+          <td>
+            <div class="d-flex justify-content-center flex-wrap gap-1">
+              <a href="/lancar/{{ id }}" class="btn btn-success btn-sm">➕ Lançar</a>
+              <button class="btn btn-warning btn-sm text-dark" onclick="abrirPagamento({{ id }}, '{{ nome }}')">
+                💵 Pagamento
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">
+                🗑️ Excluir
+              </button>
+              <a href="/cliente/{{ id }}" class="btn btn-primary btn-sm">📜 Histórico</a>
             </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-success">Salvar</button>
-          </div>
-        </form>
-      </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
+</div>
+
+<!-- Gráficos -->
+<div class="row mt-5">
+  <div class="col-md-6 mb-4">
+    <div class="card p-3 shadow-sm">
+      <h5 class="mb-3 fw-semibold">📉 Saldo Devedor por Cliente</h5>
+      <canvas id="graficoSaldo"></canvas>
     </div>
   </div>
 
-  <!-- SCRIPTS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    const nomes = {{ nomes | tojson }};
-    const saldos = {{ saldos | tojson }};
-    const totalCompras = {{ total_compras | tojson }};
-    const totalPagos = {{ total_pagos | tojson }};
+  <div class="col-md-6 mb-4">
+    <div class="card p-3 shadow-sm">
+      <h5 class="mb-3 fw-semibold">💰 Total Comprado vs Pago</h5>
+      <canvas id="graficoComparativo"></canvas>
+    </div>
+  </div>
+</div>
 
-    // Filtro de pesquisa por nome
-    document.getElementById("pesquisaCliente").addEventListener("keyup", function() {
-      const termo = this.value.toLowerCase();
-      const linhas = document.querySelectorAll("tbody tr");
+<!-- Modal de Pagamento -->
+<div class="modal fade" id="modalPagamento" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <form id="formPagamento" method="POST" action="">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title fw-semibold">💵 Atualizar Pagamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="nomeCliente" class="fw-bold mb-3"></p>
+          <div class="mb-3">
+            <label for="valor_pago" class="form-label">Valor pago (R$)</label>
+            <input type="number" class="form-control" id="valor_pago" name="valor_pago" step="0.01" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
-      linhas.forEach(linha => {
-        const nomeCliente = linha.children[0].innerText.toLowerCase();
-        linha.style.display = nomeCliente.includes(termo) ? "" : "none";
-      });
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const nomes = {{ nomes | tojson }};
+  const saldos = {{ saldos | tojson }};
+  const totalCompras = {{ total_compras | tojson }};
+  const totalPagos = {{ total_pagos | tojson }};
+
+  // Pesquisa dinâmica
+  document.getElementById("pesquisaCliente").addEventListener("keyup", function() {
+    const termo = this.value.toLowerCase();
+    const linhas = document.querySelectorAll("tbody tr");
+    linhas.forEach(l => {
+      const nome = l.children[0].innerText.toLowerCase();
+      l.style.display = nome.includes(termo) ? "" : "none";
     });
+  });
 
-    // Modal de pagamento
-    function abrirPagamento(clienteId, clienteNome) {
-      const modal = new bootstrap.Modal(document.getElementById('modalPagamento'));
-      const form = document.getElementById('formPagamento');
-      const nome = document.getElementById('nomeCliente');
-      nome.innerText = "Cliente: " + clienteNome;
-      form.action = `/pagamento/${clienteId}`;
-      modal.show();
+  // Modal pagamento
+  function abrirPagamento(id, nome) {
+    const modal = new bootstrap.Modal(document.getElementById('modalPagamento'));
+    document.getElementById('formPagamento').action = `/pagamento/${id}`;
+    document.getElementById('nomeCliente').innerText = "Cliente: " + nome;
+    modal.show();
+  }
+
+  // Confirma exclusão
+  function confirmarExclusao(id, nome) {
+    if (confirm(`Tem certeza que deseja excluir o cliente "${nome}"?`)) {
+      window.location.href = `/excluir/${id}`;
     }
+  }
 
-    // Confirmação antes de excluir
-    function confirmarExclusao(clienteId, clienteNome) {
-      if (confirm(`Tem certeza que deseja excluir o cliente "${clienteNome}"?`)) {
-        window.location.href = `/excluir/${clienteId}`;
-      }
-    }
+  // Gráfico de barras
+  new Chart(document.getElementById("graficoSaldo"), {
+    type: 'bar',
+    data: {
+      labels: nomes,
+      datasets: [{
+        label: 'Saldo Devedor (R$)',
+        data: saldos,
+        backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
 
-    // Gráfico de barras (Saldo)
-    new Chart(document.getElementById("graficoSaldo"), {
-      type: 'bar',
-      data: {
-        labels: nomes,
-        datasets: [{
-          label: 'Saldo Devedor (R$)',
-          data: saldos,
-          backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
-        }]
-      },
-      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-    });
-
-    // Gráfico de pizza (Total Comprado x Pago)
-    new Chart(document.getElementById("graficoComparativo"), {
-      type: 'pie',
-      data: {
-        labels: ['Total Comprado', 'Total Pago'],
-        datasets: [{
-          data: [
-            totalCompras.reduce((a,b)=>a+b,0),
-            totalPagos.reduce((a,b)=>a+b,0)
-          ],
-          backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
-        }]
-      },
-      options: { plugins: { legend: { position: 'bottom' } } }
-    });
-  </script>
-
-</body>
-</html>
+  // Gráfico de pizza
+  new Chart(document.getElementById("graficoComparativo"), {
+    type: 'pie',
+    data: {
+      labels: ['Total Comprado', 'Total Pago'],
+      datasets: [{
+        data: [
+          totalCompras.reduce((a,b)=>a+b,0),
+          totalPagos.reduce((a,b)=>a+b,0)
+        ],
+        backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+</script>
+{% endblock %}
