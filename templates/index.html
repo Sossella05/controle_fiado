@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Dashboard Resumo -->
+<!-- DASHBOARD - CARDS DE RESUMO -->
 <div class="row mb-4 text-center">
   <div class="col-md-3 mb-3">
     <div class="card shadow-sm border-0 p-3">
@@ -29,13 +29,18 @@
   </div>
 </div>
 
-<!-- Resumo de Clientes -->
+<!-- RESUMO DE CLIENTES -->
 <div class="card mb-4">
   <div class="card-body">
     <h4 class="mb-3">📋 Resumo de Clientes</h4>
 
+    <form method="post" action="/desfazer" class="mb-3">
+      <input type="text" id="search" class="form-control mb-2 search-input" placeholder="🔍 Buscar cliente por nome...">
+      <button type="submit" class="btn btn-outline-danger btn-sm">↩️ Desfazer última ação</button>
+    </form>
+
     <div class="table-responsive">
-      <table class="table table-hover align-middle text-center">
+      <table class="table table-hover align-middle text-center" id="tabelaClientes">
         <thead class="table-dark">
           <tr>
             <th>Cliente</th>
@@ -46,19 +51,22 @@
           </tr>
         </thead>
         <tbody>
-          {% for cliente in clientes %}
+          {% for c in dados %}
           <tr>
-            <td>{{ cliente[1] }}</td>
-            <td>R$ {{ "%.2f"|format(cliente[2]) }}</td>
-            <td>R$ {{ "%.2f"|format(cliente[3]) }}</td>
-            <td class="{% if cliente[2]-cliente[3] > 0 %}text-danger{% else %}text-success{% endif %}">
-              R$ {{ "%.2f"|format(cliente[2]-cliente[3]) }}
+            <td>{{ c[1] }}</td>
+            <td>R$ {{ "%.2f"|format(c[2]) }}</td>
+            <td>R$ {{ "%.2f"|format(c[3]) }}</td>
+            <td class="{% if c[4] > 0 %}text-danger{% else %}text-success{% endif %}">
+              R$ {{ "%.2f"|format(c[4]) }}
             </td>
             <td>
-              <a href="/lancar/{{ cliente[0] }}" class="btn btn-success btn-sm">➕ Lançar</a>
-              <a href="/pagamento/{{ cliente[0] }}" class="btn btn-warning btn-sm text-dark">💸 Pagamento</a>
-              <a href="/excluir/{{ cliente[0] }}" class="btn btn-danger btn-sm">🗑️ Excluir</a>
-              <a href="/historico/{{ cliente[0] }}" class="btn btn-primary btn-sm">📜 Histórico</a>
+              <a href="/lancar/{{ c[0] }}" class="btn btn-success btn-sm">➕ Lançar</a>
+              <form method="POST" action="/pagamento/{{ c[0] }}" class="d-inline">
+                <input type="hidden" name="valor_pago" value="0">
+                <button type="submit" class="btn btn-warning btn-sm text-dark">💸 Pagamento</button>
+              </form>
+              <a href="/excluir/{{ c[0] }}" class="btn btn-danger btn-sm">🗑️ Excluir</a>
+              <a href="/historico/{{ c[0] }}" class="btn btn-primary btn-sm">📜 Histórico</a>
             </td>
           </tr>
           {% endfor %}
@@ -70,7 +78,7 @@
   </div>
 </div>
 
-<!-- Gráficos -->
+<!-- GRÁFICOS -->
 <div class="row">
   <div class="col-md-6 mb-3">
     <div class="card p-3">
@@ -90,6 +98,21 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- FILTRO DE PESQUISA -->
+<script>
+  const input = document.getElementById('search');
+  const tabela = document.getElementById('tabelaClientes');
+  input.addEventListener('keyup', function() {
+    const termo = this.value.toLowerCase();
+    for (let linha of tabela.tBodies[0].rows) {
+      const nome = linha.cells[0].innerText.toLowerCase();
+      linha.style.display = nome.includes(termo) ? '' : 'none';
+    }
+  });
+</script>
+
+<!-- GRÁFICOS -->
 <script>
   const ctx1 = document.getElementById('chartSaldo');
   const ctx2 = document.getElementById('chartTotal');
@@ -97,12 +120,16 @@
   new Chart(ctx1, {
     type: 'bar',
     data: {
-      labels: [{% for cliente in clientes %}'{{ cliente[1] }}',{% endfor %}],
+      labels: {{ nomes|tojson }},
       datasets: [{
         label: 'Saldo Devedor',
-        data: [{% for cliente in clientes %}{{ cliente[2]-cliente[3] }},{% endfor %}],
+        data: {{ saldos|tojson }},
         backgroundColor: 'rgba(255, 99, 132, 0.7)'
       }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
     }
   });
 
@@ -114,7 +141,8 @@
         data: [{{ total_vendido }}, {{ total_pago }}],
         backgroundColor: ['#f1c40f', '#1abc9c']
       }]
-    }
+    },
+    options: { responsive: true }
   });
 </script>
 {% endblock %}
