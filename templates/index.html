@@ -1,102 +1,87 @@
 {% extends "base.html" %}
 {% block content %}
-<h3 class="mb-4 fw-semibold">📋 Resumo de Clientes</h3>
 
-<!-- Campo de pesquisa -->
-<div class="input-group mb-4">
-  <span class="input-group-text bg-white border-end-0">🔍</span>
-  <input type="text" id="pesquisaCliente" class="form-control border-start-0 search-input"
-         placeholder="Buscar cliente por nome...">
+<!-- Dashboard Resumo -->
+<div class="row mb-4 text-center">
+  <div class="col-md-3 mb-3">
+    <div class="card shadow-sm border-0 p-3">
+      <h6 class="text-muted mb-1">Total de Clientes</h6>
+      <h4 class="fw-bold">{{ total_clientes }}</h4>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card shadow-sm border-0 p-3">
+      <h6 class="text-muted mb-1">Total Vendido</h6>
+      <h4 class="fw-bold text-primary">R$ {{ "%.2f"|format(total_vendido) }}</h4>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card shadow-sm border-0 p-3">
+      <h6 class="text-muted mb-1">Total Pago</h6>
+      <h4 class="fw-bold text-success">R$ {{ "%.2f"|format(total_pago) }}</h4>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card shadow-sm border-0 p-3">
+      <h6 class="text-muted mb-1">Saldo em Aberto</h6>
+      <h4 class="fw-bold text-danger">R$ {{ "%.2f"|format(total_devedor) }}</h4>
+    </div>
+  </div>
 </div>
 
-<!-- Botão Desfazer -->
-{% if session.get('ultima_acao') %}
-  <form method="POST" action="/desfazer" class="mb-3">
-    <button type="submit" class="btn btn-outline-danger btn-sm">↩️ Desfazer última ação</button>
-  </form>
-{% endif %}
+<!-- Resumo de Clientes -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h4 class="mb-3">📋 Resumo de Clientes</h4>
 
-<!-- Tabela de clientes -->
-<div class="card p-3 shadow-sm">
-  <div class="table-responsive">
-    <table class="table align-middle text-center">
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>Total Comprado</th>
-          <th>Total Pago</th>
-          <th>Saldo Devedor</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for id, nome, total_compra, total_pago, saldo in dados %}
-        <tr>
-          <td>{{ nome }}</td>
-          <td>R$ {{ "%.2f"|format(total_compra) }}</td>
-          <td>R$ {{ "%.2f"|format(total_pago) }}</td>
-          <td class="{{ 'text-danger fw-semibold' if saldo > 0 else 'text-success fw-semibold' }}">
-            R$ {{ "%.2f"|format(saldo) }}
-          </td>
-          <td>
-            <div class="d-flex justify-content-center flex-wrap gap-1">
-              <a href="/lancar/{{ id }}" class="btn btn-success btn-sm">➕ Lançar</a>
-              <button class="btn btn-warning btn-sm text-dark" onclick="abrirPagamento({{ id }}, '{{ nome }}')">
-                💵 Pagamento
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="confirmarExclusao({{ id }}, '{{ nome }}')">
-                🗑️ Excluir
-              </button>
-              <a href="/cliente/{{ id }}" class="btn btn-primary btn-sm">📜 Histórico</a>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle text-center">
+        <thead class="table-dark">
+          <tr>
+            <th>Cliente</th>
+            <th>Total Comprado</th>
+            <th>Total Pago</th>
+            <th>Saldo Devedor</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cliente in clientes %}
+          <tr>
+            <td>{{ cliente[1] }}</td>
+            <td>R$ {{ "%.2f"|format(cliente[2]) }}</td>
+            <td>R$ {{ "%.2f"|format(cliente[3]) }}</td>
+            <td class="{% if cliente[2]-cliente[3] > 0 %}text-danger{% else %}text-success{% endif %}">
+              R$ {{ "%.2f"|format(cliente[2]-cliente[3]) }}
+            </td>
+            <td>
+              <a href="/lancar/{{ cliente[0] }}" class="btn btn-success btn-sm">➕ Lançar</a>
+              <a href="/pagamento/{{ cliente[0] }}" class="btn btn-warning btn-sm text-dark">💸 Pagamento</a>
+              <a href="/excluir/{{ cliente[0] }}" class="btn btn-danger btn-sm">🗑️ Excluir</a>
+              <a href="/historico/{{ cliente[0] }}" class="btn btn-primary btn-sm">📜 Histórico</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <a href="/adicionar" class="btn btn-success w-100 mt-3">➕ Adicionar Cliente</a>
   </div>
-
-  <a href="/cliente" class="btn btn-success mt-3">➕ Adicionar Cliente</a>
 </div>
 
 <!-- Gráficos -->
-<div class="row mt-5">
-  <div class="col-md-6 mb-4">
-    <div class="card p-3 shadow-sm">
-      <h5 class="mb-3 fw-semibold">📉 Saldo Devedor por Cliente</h5>
-      <canvas id="graficoSaldo"></canvas>
+<div class="row">
+  <div class="col-md-6 mb-3">
+    <div class="card p-3">
+      <h6>📊 Saldo Devedor por Cliente</h6>
+      <canvas id="chartSaldo"></canvas>
     </div>
   </div>
-
-  <div class="col-md-6 mb-4">
-    <div class="card p-3 shadow-sm">
-      <h5 class="mb-3 fw-semibold">💰 Total Comprado vs Pago</h5>
-      <canvas id="graficoComparativo"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- Modal de Pagamento -->
-<div class="modal fade" id="modalPagamento" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0">
-      <form id="formPagamento" method="POST" action="">
-        <div class="modal-header bg-warning text-dark">
-          <h5 class="modal-title fw-semibold">💵 Atualizar Pagamento</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <p id="nomeCliente" class="fw-bold mb-3"></p>
-          <div class="mb-3">
-            <label for="valor_pago" class="form-label">Valor pago (R$)</label>
-            <input type="number" class="form-control" id="valor_pago" name="valor_pago" step="0.01" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-success">Salvar</button>
-        </div>
-      </form>
+  <div class="col-md-6 mb-3">
+    <div class="card p-3">
+      <h6>💰 Total Comprado vs Pago</h6>
+      <canvas id="chartTotal"></canvas>
     </div>
   </div>
 </div>
@@ -106,64 +91,30 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const nomes = {{ nomes | tojson }};
-  const saldos = {{ saldos | tojson }};
-  const totalCompras = {{ total_compras | tojson }};
-  const totalPagos = {{ total_pagos | tojson }};
+  const ctx1 = document.getElementById('chartSaldo');
+  const ctx2 = document.getElementById('chartTotal');
 
-  // Pesquisa dinâmica
-  document.getElementById("pesquisaCliente").addEventListener("keyup", function() {
-    const termo = this.value.toLowerCase();
-    const linhas = document.querySelectorAll("tbody tr");
-    linhas.forEach(l => {
-      const nome = l.children[0].innerText.toLowerCase();
-      l.style.display = nome.includes(termo) ? "" : "none";
-    });
-  });
-
-  // Modal pagamento
-  function abrirPagamento(id, nome) {
-    const modal = new bootstrap.Modal(document.getElementById('modalPagamento'));
-    document.getElementById('formPagamento').action = `/pagamento/${id}`;
-    document.getElementById('nomeCliente').innerText = "Cliente: " + nome;
-    modal.show();
-  }
-
-  // Confirma exclusão
-  function confirmarExclusao(id, nome) {
-    if (confirm(`Tem certeza que deseja excluir o cliente "${nome}"?`)) {
-      window.location.href = `/excluir/${id}`;
-    }
-  }
-
-  // Gráfico de barras
-  new Chart(document.getElementById("graficoSaldo"), {
+  new Chart(ctx1, {
     type: 'bar',
     data: {
-      labels: nomes,
+      labels: [{% for cliente in clientes %}'{{ cliente[1] }}',{% endfor %}],
       datasets: [{
-        label: 'Saldo Devedor (R$)',
-        data: saldos,
-        backgroundColor: saldos.map(s => s > 0 ? 'rgba(255,99,132,0.7)' : 'rgba(75,192,192,0.7)')
+        label: 'Saldo Devedor',
+        data: [{% for cliente in clientes %}{{ cliente[2]-cliente[3] }},{% endfor %}],
+        backgroundColor: 'rgba(255, 99, 132, 0.7)'
       }]
-    },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    }
   });
 
-  // Gráfico de pizza
-  new Chart(document.getElementById("graficoComparativo"), {
+  new Chart(ctx2, {
     type: 'pie',
     data: {
       labels: ['Total Comprado', 'Total Pago'],
       datasets: [{
-        data: [
-          totalCompras.reduce((a,b)=>a+b,0),
-          totalPagos.reduce((a,b)=>a+b,0)
-        ],
-        backgroundColor: ['rgba(255,206,86,0.7)', 'rgba(75,192,192,0.7)']
+        data: [{{ total_vendido }}, {{ total_pago }}],
+        backgroundColor: ['#f1c40f', '#1abc9c']
       }]
-    },
-    options: { plugins: { legend: { position: 'bottom' } } }
+    }
   });
 </script>
 {% endblock %}
